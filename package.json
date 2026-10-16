@@ -1,0 +1,36 @@
+{
+  "name": "documind",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@swc/helpers": "^0.5.23",
+    "@types/node": "^26.6.5",
+    "@types/pdf-parse": "^1.1.5",
+    "@upstash/vector": "^1.2.3",
+    "autoprefixer": "^10.6.1",
+    "clsx": "^2.1.1",
+    "graceful-fs": "^4.2.11",
+    "lucide-react": "^1.55.0",
+    "next": "^14.2.35",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^2.4.5",
+    "postcss": "^8.5.29",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^3.4.19"
+  },
+  "devDependencies": {
+    "@types/prop-types": "^15.7.15",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "typescript": "^5.6.3"
+  }
+}

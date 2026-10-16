@@ -1,0 +1,19 @@
+Acme Technologies — Remote Work & Benefits Handbook (2025)
+
+1. WORKING HOURS & CORE COLLABORATION TIME
+Acme operates on flexible hours, but all engineering and product team members must be available during core collaboration hours between 10:00 AM and 3:00 PM Eastern Time.
+
+2. REMOTE WORK EQUIPMENT STIPEND
+Full-time employees receive a one-time remote home office stipend of $1,500 upon joining. Additionally, employees receive an annual technology refresh allowance of $500 starting after their first anniversary.
+
+3. ANNUAL LEAVE & TIME-OFF POLICY
+Employees are entitled to 25 days of Paid Time Off (PTO) annually. Notice for planned leave greater than 3 days must be submitted at least 14 business days in advance to team leads.
+
+4. CYBERSECURITY REQUIREMENTS
+All company devices must run Full Disk Encryption (BitLocker / FileVault). Multi-Factor Authentication (MFA) via a hardware security key or authenticator app is mandatory on all internal systems. SMS-based 2FA is strictly prohibited.
+
+5. HEALTHCARE & WELLNESS
+Comprehensive medical, dental, and vision insurance premiums are 100% covered by Acme Technologies for employees and 80% covered for dependents. A monthly wellness reimbursement of $100 is available for gym memberships or fitness activities.
+
+6. CONTACT & HR DIRECTORY
+For any benefits questions, email benefits@acmetechnologies.example or message the #people-ops channel on Slack.
