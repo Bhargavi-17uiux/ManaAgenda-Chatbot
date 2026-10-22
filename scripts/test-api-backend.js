@@ -33,6 +33,9 @@ async function runApiVerification() {
     assert(res.ok, 'Health check HTTP status is 200', `Status: ${res.status}`);
     assert(data.status === 'healthy', 'Health check reports healthy status', `status=${data.status}`);
     assert(data.geminiConfigured === true, 'Gemini API key is configured');
+    assert(data.vectorStoreProvider === 'upstash', 'Vector store provider is upstash', `provider=${data.vectorStoreProvider}`);
+    assert(data.documentCount === 3, 'Document count accurately reports 3 documents', `documentCount=${data.documentCount}`);
+    assert(data.chunkCount === 24, 'Chunk count accurately reports 24 chunks', `chunkCount=${data.chunkCount}`);
     assert(
       res.headers.get('access-control-allow-origin') === 'https://manaagenda.vercel.app',
       'CORS Allow-Origin matches website origin',
@@ -119,6 +122,9 @@ async function runApiVerification() {
 
   // 5. POST /api/chat with alternative "message" payload
   try {
+    // Brief pause to respect API rate limits
+    await new Promise((r) => setTimeout(r, 1200));
+
     console.log(`\n--> Test 5: POST /api/chat with "message" payload`);
     const altRes = await fetch(`${BASE_URL}/api/chat`, {
       method: 'POST',

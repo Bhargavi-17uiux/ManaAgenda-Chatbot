@@ -12,6 +12,8 @@ try {
 
 const PREFERRED_LLM_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 const PREFERRED_EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'gemini-embedding-001';
+export const EMBEDDING_DIMENSION = 1536;
+
 
 // Verified, supported fallback models from Google Generative Language API
 const FALLBACK_LLM_MODELS = [
@@ -86,6 +88,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             content: { parts: [{ text: cleanText }] },
+            outputDimensionality: EMBEDDING_DIMENSION,
           }),
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         });

@@ -36,12 +36,35 @@ export interface IVectorStore {
 // ==========================================
 class UpstashVectorStore implements IVectorStore {
   private index: Index;
+  private documents: Map<string, UploadedDocument> = new Map();
+  private lastFetchedAt: number = 0;
+  private readonly CACHE_TTL_MS = 5000;
 
   constructor(url: string, token: string) {
     this.index = new Index({
       url,
       token,
     });
+    this.loadLocalMetadataCache();
+  }
+
+  private loadLocalMetadataCache(): void {
+    try {
+      const storageFile = path.join(process.cwd(), '.documind_store.json');
+      if (fs.existsSync(storageFile)) {
+        const raw = fs.readFileSync(storageFile, 'utf-8');
+        const data = JSON.parse(raw);
+        if (Array.isArray(data.documents)) {
+          for (const doc of data.documents) {
+            if (doc && doc.id) {
+              this.documents.set(doc.id, doc);
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore in environments where local file is absent
+    }
   }
 
   getProviderName(): 'upstash' | 'local' {
@@ -67,21 +90,13 @@ class UpstashVectorStore implements IVectorStore {
       const batch = records.slice(i, i + batchSize);
       await this.index.upsert(batch);
     }
+    this.lastFetchedAt = 0;
   }
 
   async addDocumentMeta(doc: UploadedDocument): Promise<void> {
-    // Store doc metadata in Upstash with special doc_meta prefix
-    await this.index.upsert([
-      {
-        id: `meta_${doc.id}`,
-        // dummy zero-vector or empty vector for metadata lookup
-        vector: new Array(768).fill(0),
-        metadata: {
-          isDocumentMeta: true,
-          ...doc,
-        },
-      },
-    ]);
+    // Keep document metadata in the documents registry without polluting the vector index
+    this.documents.set(doc.id, doc);
+    this.lastFetchedAt = 0;
   }
 
   async similaritySearch(queryVector: number[], topK: number = 4): Promise<DocumentChunk[]> {
@@ -106,25 +121,104 @@ class UpstashVectorStore implements IVectorStore {
   }
 
   async getDocuments(): Promise<UploadedDocument[]> {
-    // In Upstash, we can query recent metadata or use a local sync
-    // For MVP robustness, we also keep an in-memory/cache index of documents
-    return [];
+    const now = Date.now();
+    if (this.lastFetchedAt > 0 && now - this.lastFetchedAt < this.CACHE_TTL_MS && this.documents.size > 0) {
+      return Array.from(this.documents.values());
+    }
+
+    try {
+      let cursor: string | number = 0;
+      const docMap = new Map<string, UploadedDocument>();
+
+      while (true) {
+        const res = await this.index.range({
+          cursor,
+          limit: 1000,
+          includeMetadata: true,
+        });
+
+        for (const vector of res.vectors || []) {
+          const meta = vector.metadata as any;
+          if (!meta || !meta.documentId || meta.isDocumentMeta) continue;
+
+          const docId = String(meta.documentId);
+          const pageNum = typeof meta.pageNumber === 'number' && meta.pageNumber > 0 ? meta.pageNumber : 1;
+
+          if (!docMap.has(docId)) {
+            const cached = this.documents.get(docId);
+            const docName = String(meta.documentName || cached?.name || 'Unknown Document');
+            docMap.set(docId, {
+              id: docId,
+              name: docName,
+              size: cached?.size || 0,
+              type: docName.toLowerCase().endsWith('.pdf') ? 'pdf' : 'txt',
+              pageCount: pageNum,
+              chunkCount: 1,
+              uploadedAt: cached?.uploadedAt || new Date().toISOString(),
+            });
+          } else {
+            const existing = docMap.get(docId)!;
+            existing.chunkCount += 1;
+            if (pageNum > existing.pageCount) {
+              existing.pageCount = pageNum;
+            }
+          }
+        }
+
+        if (!res.nextCursor || res.nextCursor === '' || res.nextCursor === '0' || res.nextCursor === cursor) {
+          break;
+        }
+        cursor = res.nextCursor;
+      }
+
+      this.documents.clear();
+      docMap.forEach((doc, id) => {
+        this.documents.set(id, doc);
+      });
+      this.lastFetchedAt = Date.now();
+
+      return Array.from(docMap.values());
+    } catch (err) {
+      console.error('Error retrieving documents from Upstash Vector:', err);
+      return Array.from(this.documents.values());
+    }
   }
 
-  async removeDocumentByName(_name: string): Promise<void> {
-    // Upstash serverless index deletion by metadata if needed
+  async removeDocumentByName(name: string): Promise<void> {
+    if (this.documents.size === 0) {
+      await this.getDocuments();
+    }
+
+    const toDeleteIds: string[] = [];
+    this.documents.forEach((doc, id) => {
+      if (doc.name === name) {
+        toDeleteIds.push(id);
+      }
+    });
+
+    for (const id of toDeleteIds) {
+      this.documents.delete(id);
+      try {
+        await this.index.delete({ prefix: `${id}_` });
+      } catch {}
+    }
+    this.lastFetchedAt = 0;
   }
 
   async deleteDocumentById(id: string): Promise<boolean> {
     try {
-      await this.index.delete(`meta_${id}`);
-      return true;
+      this.documents.delete(id);
+      this.lastFetchedAt = 0;
+      const res = await this.index.delete({ prefix: `${id}_` });
+      return (res?.deleted ?? 0) > 0;
     } catch {
       return false;
     }
   }
 
   async clearAll(): Promise<void> {
+    this.documents.clear();
+    this.lastFetchedAt = 0;
     await this.index.reset();
   }
 }
