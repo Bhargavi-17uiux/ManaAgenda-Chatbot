@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { extractTextFromPDF, extractTextFromTXT } from '@/lib/pdf-parser';
 import { chunkDocument } from '@/lib/chunker';
@@ -6,6 +6,7 @@ import { generateBatchEmbeddings } from '@/lib/gemini';
 import { getVectorStore } from '@/lib/vector-store';
 import { UploadedDocument } from '@/types';
 import { applyCors, handleCorsPreflight } from '@/lib/cors';
+import { getAdminAuthorization } from '@/lib/auth/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,32 @@ export async function OPTIONS(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const authorization = await getAdminAuthorization();
+    if (!authorization.isAdmin) {
+      const status =
+        authorization.reason === 'not-configured'
+          ? 503
+          : authorization.reason === 'not-admin'
+            ? 403
+            : 401;
+      return applyCors(
+        NextResponse.json(
+          {
+            success: false,
+            error:
+              status === 503
+                ? 'Document uploads are not configured.'
+                : status === 403
+                  ? 'Administrator access is required to upload documents.'
+                  : 'Sign in with an administrator account to upload documents.',
+          },
+          { status }
+        ),
+        req,
+        'POST, OPTIONS'
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 

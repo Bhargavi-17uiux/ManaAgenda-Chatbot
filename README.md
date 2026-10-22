@@ -76,6 +76,14 @@ Open `.env.local` and add your **Google Gemini API Key**:
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
+
+Configure Supabase Auth for administrator-only document uploads:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_or_publishable_key
+ADMIN_EMAIL_ALLOWLIST=admin@example.com
+```
+Enable email/password sign-in in Supabase Auth and create administrator account(s) there. `ADMIN_EMAIL_ALLOWLIST` is server-only and accepts comma-separated email addresses. Uploads are denied if Supabase or the allowlist is not configured. The Supabase URL and anon/publishable key are public client settings; never use a service-role key in the frontend.
 > 💡 **Where to get a free Gemini API key?**
 > Visit [Google AI Studio](https://aistudio.google.com/app/apikey) to generate a free Gemini API key in under 1 minute.
 
@@ -159,6 +167,9 @@ Why use Upstash Vector in production instead of local memory?
    | Variable | Value | Required |
    |---|---|---|
    | `GEMINI_API_KEY` | Your Google AI Studio API key | Yes |
+   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes (for admin uploads) |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/publishable key | Yes (for admin uploads) |
+   | `ADMIN_EMAIL_ALLOWLIST` | Comma-separated administrator emails | Yes (for admin uploads; server-only) |
    | `UPSTASH_VECTOR_REST_URL` | `https://...-vector.upstash.io` | Yes (for persistent cloud retrieval) |
    | `UPSTASH_VECTOR_REST_TOKEN` | `AB...` | Yes (for persistent cloud retrieval) |
 4. Click **Deploy**. Vercel will build and deploy the Next.js application.

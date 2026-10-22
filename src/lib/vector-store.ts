@@ -206,14 +206,13 @@ class UpstashVectorStore implements IVectorStore {
   }
 
   async deleteDocumentById(id: string): Promise<boolean> {
-    try {
+    const res = await this.index.delete({ prefix: `${id}_` });
+    const deleted = (res?.deleted ?? 0) > 0;
+    if (deleted) {
       this.documents.delete(id);
       this.lastFetchedAt = 0;
-      const res = await this.index.delete({ prefix: `${id}_` });
-      return (res?.deleted ?? 0) > 0;
-    } catch {
-      return false;
     }
+    return deleted;
   }
 
   async clearAll(): Promise<void> {

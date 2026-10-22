@@ -11,23 +11,33 @@ export default function Home() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingDocs, setIsLoadingDocs] = useState(true);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchHealthAndDocs = useCallback(async () => {
     try {
       setIsLoadingDocs(true);
       const [healthRes, docsRes] = await Promise.all([
-        fetch('/api/health').then((r) => r.json()),
-        fetch('/api/documents').then((r) => r.json()),
+        fetch('/api/health'),
+        fetch('/api/documents'),
       ]);
 
-      setHealth(healthRes);
-      if (docsRes.success && Array.isArray(docsRes.documents)) {
-        setDocuments(docsRes.documents);
+      const [healthData, docsData] = await Promise.all([healthRes.json(), docsRes.json()]);
+      if (!healthRes.ok) {
+        throw new Error(healthData.error || 'Failed to load system status.');
       }
-    } catch (err: any) {
-      console.error('Error fetching initial status:', err);
+      if (!docsRes.ok || !docsData.success || !Array.isArray(docsData.documents)) {
+        throw new Error(docsData.error || 'Failed to load documents.');
+      }
+
+      setHealth(healthData);
+      setDocuments(docsData.documents);
+      setDocumentsError(null);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load documents.';
+      setDocumentsError(message);
     } finally {
       setIsLoadingDocs(false);
     }
@@ -57,28 +67,35 @@ export default function Home() {
   };
 
   const handleClearDocuments = async () => {
+    if (!isAdmin) return;
     if (!confirm('Are you sure you want to clear all indexed documents?')) return;
     try {
       const res = await fetch('/api/documents', { method: 'DELETE' });
-      if (res.ok) {
-        setDocuments([]);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `sys-${Date.now()}`,
-            role: 'assistant',
-            content: 'All documents and embeddings have been cleared.',
-            createdAt: new Date().toISOString(),
-          },
-        ]);
-        fetchHealthAndDocs();
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to clear documents.');
       }
-    } catch (err: any) {
-      setApiError(err.message || 'Failed to clear documents');
+
+      setDocuments([]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `sys-${Date.now()}`,
+          role: 'assistant',
+          content: 'All documents and embeddings have been cleared.',
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+      await fetchHealthAndDocs();
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Failed to clear documents.');
     }
   };
 
   const handleDeleteDocument = async (doc: UploadedDocument) => {
+    if (!isAdmin) {
+      throw new Error('Administrator access is required to delete documents.');
+    }
     try {
       const res = await fetch(`/api/documents?id=${encodeURIComponent(doc.id)}`, {
         method: 'DELETE',
@@ -100,8 +117,8 @@ export default function Home() {
       ]);
       fetchHealthAndDocs();
       return true;
-    } catch (err: any) {
-      setApiError(err.message || `Failed to delete "${doc.name}"`);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : `Failed to delete "${doc.name}"`);
       throw err;
     }
   };
@@ -177,6 +194,10 @@ export default function Home() {
           onClearDocuments={handleClearDocuments}
           onDeleteDocument={handleDeleteDocument}
           isLoadingDocs={isLoadingDocs}
+          documentsError={documentsError}
+          onRefreshDocuments={fetchHealthAndDocs}
+          isAdmin={isAdmin}
+          onAdminChange={setIsAdmin}
         />
       </div>
 
